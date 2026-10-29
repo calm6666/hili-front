@@ -24,7 +24,7 @@
 | apps/live | hili-live | 直播间，Solid CSR（消费 @lumina 播放器） |
 | apps/member | hili-member | 个人中心，Solid CSR |
 | packages/core | 4 个原语包 | utils、crypto、storage、shared-worker（零业务约定、近零第三方运行时） |
-| packages/libs | 3 个能力库包 | request、websocket、player-types（带第三方运行时或重 IO 的能力放这里） |
+| packages/libs | 2 个能力库包 | request、websocket（带第三方运行时或重 IO 的能力放这里） |
 | packages/ui | 9 个组件包 | ui-solid、ui-mobile-solid、ui-vue、biz-solid、biz-mobile-solid、biz-vue、comment（Lit）、theme-tokens、toast |
 | packages/plugins | 3 个插件包 | tracker、error-monitor、perf-monitor |
 | packages/nova-player | 播放器整包 | gitee 外部仓 submodule，内含 @lumina/nova、@lumina/plugins、@lumina/live-player 三包（见第十二节） |
@@ -129,7 +129,8 @@ apps/mobile 用 SolidStart 单应用承载 SSR 与 CSR 两种形态：
   - API 统一响应类型的定义位置：传输层类型（ApiResponse、ApiStatus、HttpError、RequestConfig 等）随 @hili/request 导出，与请求库同源演进；业务数据结构类型放各应用的 API 模块（泛型 T 注入），业务类型体量大后再拆独立 @hili/api-types 包。
   - SSR 注意：Node fetch 无 cookie jar，服务端请求需经 headers 显式转发客户端 Cookie。
 - @hili/websocket（libs）：原 websocket.ts 移植，加 SSR 守卫（window/navigator/WebSocket 缺失时跳过对应逻辑），Node 22+（自带 WebSocket 全局）可直接实例化。
-- @hili/player-types（libs）：@lumina 三包的过渡期手工类型面。nova-player 的 dist d.ts 以 .ts 扩展引用框架源码树（@/core、@/types 等），包外无法解析，也无法用 rollup-plugin-dts 滚平（框架源码含运行时语句）；故由本包人工同步公开导出面，应用 tsconfig 用 paths 把 @lumina/* 映射过来（见 apps/live/tsconfig.json）。上游 d.ts 自包含后整体移除。
+
+播放器（@lumina/*）类型不经 libs：各包 dist d.ts 已自包含（见第十二节），workspace 软链 + package.json types 直连，消费方零配置。
 
 ## 十二、播放器域（packages/nova-player）
 
@@ -151,9 +152,10 @@ gitee 外部仓（danding0000001/nova-player）以 submodule 挂载在 packages/
 已识别待上游确认的两项（暂不动）：
 
 - live-player 去 self-contained：其源码引用框架内部符号（_reactiveText、createTypedStateManager、PluginManager、locale JSON 等），去内嵌需要把这些内部 API 提升为 nova 公开导出，属上游 API 面设计决策，确认后再实施。
-- d.ts 自包含：需为框架根目录（core / types / events / error）独立生成声明并重写 dist 内的 .ts 扩展引用，工作量集中在构建脚本；过渡期由 @hili/player-types 覆盖。
 
-apps/live 消费方式：package.json 声明 "@lumina/nova": "workspace:*" 等，运行时直接 import 包本体；类型经 tsconfig paths 映射到 @hili/player-types。
+d.ts 自包含已落地（本地 commit，推送 gitee 前需确认）：构建链新增「框架声明 emit + 引用改写」两步（根 tsconfig.framework.json + scripts/patch-dts.mjs，接入三包 build）。框架根目录（core / types / error / events / utils）声明统一 emit 到各包 dist/framework/；dist 内逃出包边界的引用改写为包内相对路径（框架域）或 @lumina/nova 公开出口（player 源码域，nova index 相应补了 RuntimeStateManager、PluginManager、PlayerEventBus 三个类型导出）。patch 对无法闭合的引用报错退出，防止新泄漏溜过构建。
+
+apps/live 消费方式：package.json 声明 "@lumina/nova": "workspace:*" 等，运行时与类型均直接 import 包本体（软链 + package.json types 直连），消费方零配置。
 
 ## 十三、CI 要点
 
@@ -168,5 +170,5 @@ apps/live 消费方式：package.json 声明 "@lumina/nova": "workspace:*" 等�
 3. apps/web 已由官方 create-solid 模板初始化（SolidStart v2 + nitro v3，硬性要求 Node >=24，nvm 已切 24.16.0）；apps/live（端口 3001）/apps/member（端口 3002）由官方 Solid+Vite CSR 模板初始化；apps/mobile、apps/admin 仍为占位。
 4. packages/plugins/tracker 已移植 spm 埋点（曝光/点击/停留/自动拦截）。
 5. 播放器域已整包挂载（见第十二节）；富文本编辑器未来独立建仓后照同一模式接入（域 submodule + 外层 workspace + turbo 统一构建）。
-6. nova-player 上游两项待确认：live-player 去 self-contained（需扩 nova 公开 API 面）、d.ts 自包含（框架声明独立生成 + 引用重写）。
+6. nova-player 上游一项待确认：live-player 去 self-contained（需扩 nova 公开 API 面）。d.ts 自包含已落地（框架声明 emit + 引用改写，见第十二节）。
 7. CI 补全：boundary 依赖校验、changesets 自动发布、子域名部署流水线。

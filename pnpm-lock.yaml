@@ -26,9 +26,6 @@ importers:
 
   apps/live:
     dependencies:
-      '@hili/player-types':
-        specifier: workspace:*
-        version: link:../../packages/libs/player-types
       '@lumina/nova':
         specifier: workspace:*
         version: link:../../packages/nova-player/packages/player
@@ -166,15 +163,6 @@ importers:
         version: link:../../../configs/tsconfig
 
   packages/core/utils:
-    devDependencies:
-      '@hili/eslint-config':
-        specifier: workspace:*
-        version: link:../../../configs/eslint-config
-      '@hili/tsconfig':
-        specifier: workspace:*
-        version: link:../../../configs/tsconfig
-
-  packages/libs/player-types:
     devDependencies:
       '@hili/eslint-config':
         specifier: workspace:*
