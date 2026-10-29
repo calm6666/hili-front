@@ -19,3 +19,15 @@
 [submodule "packages/plugins"]
 	path = packages/plugins
 	url = ./packages/plugins
+[submodule "apps/live"]
+	path = apps/live
+	url = ./apps/live
+[submodule "apps/member"]
+	path = apps/member
+	url = ./apps/member
+[submodule "packages/nova-player"]
+	path = packages/nova-player
+	url = https://gitee.com/danding0000001/nova-player.git
+[submodule "packages/libs"]
+	path = packages/libs
+	url = ./packages/libs

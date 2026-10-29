@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // 子模块管理：pnpm up:sub / st:sub / check:sub
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 
 const cmd = (args, opts = {}) => execFileSync('git', args, { encoding: 'utf8', ... opts }).trim();
 

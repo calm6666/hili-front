@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 包脚手架：node scripts/new-package.mjs <domain> <name> [description]
 // 例：node scripts/new-package.mjs core player-danmaku "弹幕引擎"
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const [domain, name, description = ''] = process.argv.slice(2);
@@ -17,7 +17,12 @@ if (existsSync(pkgDir)) {
 }
 
 const pkgName = `@hili/${name}`;
-const tsconfigExt = domain === 'ui' ? (name.includes('vue') ? '@hili/tsconfig/vue.json' : '@hili/tsconfig/solid.json') : '@hili/tsconfig/base.json';
+const isVue = domain === 'ui' && name.includes('vue');
+const tsconfigExt = domain === 'ui' ? (isVue ? '@hili/tsconfig/vue.json' : '@hili/tsconfig/solid.json') : '@hili/tsconfig/base.json';
+// solid 预设带 DOM lib；ui 下非 vue 的包名未含 solid 也按 solid 处理（tsconfig 与 eslint 同步）
+const eslintImport = domain === 'ui' && !isVue
+  ? "import solid from '@hili/eslint-config/solid';\n\nexport default solid\n"
+  : "import base from '@hili/eslint-config';\n\nexport default base\n";
 
 mkdirSync(join(pkgDir, 'src'), { recursive: true });
 
@@ -35,7 +40,9 @@ writeFileSync(
       exports: { '.': './src/index.ts' },
       scripts: {
         build: 'tsup src/index.ts --format esm --dts --clean',
-        typecheck: 'tsc --noEmit'
+        typecheck: 'tsc --noEmit',
+        lint: 'eslint .',
+        'lint:fix': 'eslint . --fix'
       }
     },
     null,
@@ -44,9 +51,20 @@ writeFileSync(
 );
 
 writeFileSync(
+  join(pkgDir, 'package.json'),
+  (json => {
+    const pkg = JSON.parse(json);
+    pkg.devDependencies = { '@hili/tsconfig': 'workspace:*', '@hili/eslint-config': 'workspace:*' };
+    return JSON.stringify(pkg, null, 2) + '\n';
+  })(readFileSync(join(pkgDir, 'package.json'), 'utf8'))
+);
+
+writeFileSync(
   join(pkgDir, 'tsconfig.json'),
   JSON.stringify({ extends: tsconfigExt, include: ['src'] }, null, 2) + '\n'
 );
+
+writeFileSync(join(pkgDir, 'eslint.config.js'), eslintImport);
 
 writeFileSync(join(pkgDir, 'src/index.ts'), `export const PKG_NAME = '${pkgName}';\n`);
 

@@ -2,15 +2,21 @@
   "name": "@hili/eslint-config",
   "version": "0.0.1",
   "private": false,
-  "description": "共享 ESLint 平面配置预设",
+  "description": "共享 ESLint 平面配置预设：base / solid",
   "type": "module",
   "main": "./src/index.js",
   "exports": {
-    ".": "./src/index.js"
+    ".": "./src/index.js",
+    "./solid": "./src/solid.js"
   },
+  "files": [
+    "src"
+  ],
   "dependencies": {
-    "@eslint/js": "^9.30.0",
-    "eslint": "^9.30.0",
-    "typescript-eslint": "^8.35.0"
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.2.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-solid": "^0.14.5",
+    "typescript-eslint": "^8.59.0"
   }
 }

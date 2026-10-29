@@ -1,6 +1,6 @@
 # hili-front 架构设计
 
-> 2026-10-29 定稿。方案：pnpm workspace + Turborepo 主仓骨架，业务域按域聚合成 7 个独立 git 仓库，经 git submodule 挂载。
+> 2026-10-29 定稿（v3）。方案：pnpm workspace + Turborepo 主仓骨架，业务域按域聚合成 9 个独立 git 仓库，经 git submodule 挂载；播放器整包 nova-player 同样以域 submodule 挂载并注册进外层 workspace，由 turbo 拓扑统一构建。
 
 ## 一、方案选型结论
 
@@ -9,7 +9,7 @@
 1. 纯单仓 monorepo：联调体验最好，但无独立仓库与权限隔离。
 2. meta 仓 + 全量 submodule（每包一仓）：边界最硬，但 submodule 数量爆炸、管理成本极高。
 3. 多仓 + 私有 npm registry：版本治理规范，但联调要发版，迭代慢。
-4. 单仓骨架 + 按域聚合 submodule（采用）：submodule 收敛到 7 个，域内多包共享 workspace 联调体验，域间独立 git、独立权限、独立版本、可单独 CI。
+4. 单仓骨架 + 按域聚合 submodule（采用）：submodule 收敛到 9 个，域内多包共享 workspace 联调体验，域间独立 git、独立权限、独立版本、可单独 CI。
 
 采用方案 4。若团队规模小且无权限隔离诉求，可退化成方案 1（删 .gitmodules 改单仓）。
 
@@ -21,9 +21,15 @@
 | apps/mobile | @hili/mobile | 移动端，SolidStart 混合渲染（m 域） |
 | apps/spa | @hili/spa | PC CSR，Solid + Vite（live / activity 域） |
 | apps/admin | @hili/admin | 后台管理，Vue 3.6 + Vue 组件库（admin 域） |
-| packages/core | 11 个纯 TS SDK 包 | utils、request、websocket、crypto、storage、shared-worker、toast、markdown-core、markdown-editor-core、player-core、theme-tokens |
-| packages/ui | 7 个组件包 | ui-solid、ui-mobile-solid、ui-vue、biz-solid、biz-mobile-solid、biz-vue、comment（Lit） |
+| apps/live | hili-live | 直播间，Solid CSR（消费 @lumina 播放器） |
+| apps/member | hili-member | 个人中心，Solid CSR |
+| packages/core | 4 个原语包 | utils、crypto、storage、shared-worker（零业务约定、近零第三方运行时） |
+| packages/libs | 3 个能力库包 | request、websocket、player-types（带第三方运行时或重 IO 的能力放这里） |
+| packages/ui | 9 个组件包 | ui-solid、ui-mobile-solid、ui-vue、biz-solid、biz-mobile-solid、biz-vue、comment（Lit）、theme-tokens、toast |
 | packages/plugins | 3 个插件包 | tracker、error-monitor、perf-monitor |
+| packages/nova-player | 播放器整包 | gitee 外部仓 submodule，内含 @lumina/nova、@lumina/plugins、@lumina/live-player 三包（见第十二节） |
+
+域划分三原则（core 判定）：零业务约定、近零第三方运行时依赖、长期稳定。带第三方运行时（axios）或重 IO 的进 libs；带 UI 的进 ui；可插拔增强进 plugins；播放器这类自带构建体系的外部项目整包挂载，不拆不改。
 
 主仓自有的部分：configs（tsconfig / eslint-config / commitlint / vite-preset 预设）、scripts（submodule 管理、包脚手架）、docs、CI 编排。
 
@@ -33,25 +39,31 @@
 
 ```yaml
 packages:
-  - apps/*              # 每个 app 子仓根 = 一个 workspace 包
-  - packages/core/*     # core 子仓内每个目录 = 一个包
+  - apps/*                        # 每个 app 子仓根 = 一个 workspace 包
+  - packages/core/*               # core 子仓内每个目录 = 一个包
+  - packages/libs/*
   - packages/ui/*
   - packages/plugins/*
+  - packages/nova-player          # nova-player 仓根（lumina）也是 workspace 包
+  - packages/nova-player/packages/*  # @lumina/nova / @lumina/plugins / @lumina/live-player
   - configs/*
 ```
 
-注意：域子仓内部不放独立的 workspace 文件，全仓只有一个 pnpm workspace，避免双重 workspace 冲突。子仓边界是 git 边界，不是 workspace 边界。
+注意：域子仓内部不放独立的 workspace 文件（nova-player 自身的 pnpm-workspace.yaml 与 pnpm-lock.yaml 已删除），全仓只有一个 pnpm workspace，避免双重 workspace 冲突。子仓边界是 git 边界，不是 workspace 边界。
 
 ## 四、分层依赖规则（CI 强制）
 
 ```
-apps/*  →  ui/*  →  core/*
-   │                    ↑
-   └→ plugins/*  ───────┘（plugins 只依赖 core）
+apps/*  →  ui/*  →  libs/*  →  core/*
+   │                    ↑          ↑
+   └→ plugins/*  ───────┴──────────┘（plugins 只依赖 core）
+apps/live → nova-player（@lumina/*，独立构建体系，经 workspace:* 消费）
 ```
 
-- core/*：禁止任何框架 import；必须 SSR-safe（禁止顶层访问 window / localStorage / document，统一 isBrowser() guard）；只允许依赖 utils。
-- ui/*：允许依赖 core；禁止依赖 frameworks（本方案无框架绑定层）与应用。
+- core/*：原语域。禁止任何框架 import；必须 SSR-safe（禁止顶层访问 window / localStorage / document，统一 isBrowser() guard）；只允许依赖 utils。
+- libs/*：能力库域。允许携带第三方运行时依赖（axios、websocket 等），必须 SSR-safe；可依赖 core。
+- ui/*：允许依赖 core 与 libs；禁止依赖应用。
+- nova-player：自带构建体系的外部项目，保持其内部结构（框架、播放器、插件、直播播放器），仅约定「包间依赖必须走 @lumina/nova 公开出口」，不并入分层规则。
 - comment（Lit WC）：零框架依赖，Solid / Vue / 原生三端通用；Vue 侧用 compilerOptions.isCustomElement 注册 hili- 前缀。
 - 依赖方向用 dependency-cruiser 或 eslint-plugin-boundaries 校验，进 CI。
 
@@ -95,21 +107,66 @@ apps/mobile 用 SolidStart 单应用承载 SSR 与 CSR 两种形态：
 
 ## 九、TypeScript 策略
 
-- 全部包 tsconfig extends @hili/tsconfig 预设：solid（jsxImportSource solid-js）、vue（vue-tsc 校验）、lit、node。
+- 全部包 tsconfig extends @hili/tsconfig 预设：base、dom（DOM lib，request/utils/websocket 等浏览器 API 包用）、solid（jsxImportSource solid-js）、vue（vue-tsc 校验）、lit、node。
 - 预设间唯一易冲突点就是 JSX：solid 与 vue 的预设绝不互相引用，类型检查各包独立跑（turbo typecheck），从根上避免互染。
 - 开发期包入口直指 src/index.ts（源码直引，改码即生效）；发布期 dist。
 
-## 十、CI 要点
+## 十、ESLint 体系
 
-- ci.yml：install → turbo lint → turbo typecheck → turbo build（依赖图增量）。
+- 预设包 @hili/eslint-config：默认导出 base（js.recommended + tseslint.recommended + 自定义规则，对齐 hilihili-components/eslint.config.js），`@hili/eslint-config/solid` 导出 base + eslint-plugin-solid（含 ref 必须函数式写法的约束）。
+- 每个包根放 eslint.config.js 两行引用对应预设，package.json 挂 lint / lint:fix；依赖全部收敛在预设包与根仓，包内零 eslint 依赖。
+- 根仓 lint = `turbo run lint && eslint .`（turbo 分发各包 + 根级校验 scripts/*.mjs）。
+- 新包用 `pnpm new:package` 生成，模板自带 eslint.config.js 与 lint 脚本。
+
+## 十一、libs 请求与长连接包（已移植）
+
+- @hili/utils（core）：caseConverter（toCamelCase / toSnakeCase / KeyConverter，深度键名转换 + 完整泛型映射）。
+- @hili/request（libs）：axios ^1.21 基座。
+  - 适配器顺序默认 `['fetch', 'xhr', 'http']`（axios 出厂是 `['xhr','http','fetch']`，显式反转）：现代浏览器与 Node 18+ SSR 走全局 fetch，无 fetch 的老浏览器回退 xhr，无全局 fetch 的旧 Node 回退 http。实例级 adapter 可覆盖。
+  - 统一响应 ApiResponse<T>（code/message/data）+ HttpError（HTTP 错误统一转换，401 提示防抖 3s）+ shouldRetry 重试（maxRetries 默认 0）。
+  - 驼峰转换：请求体/查询参数出站转 snake，响应转 camel；`convertCase`（实例级 + 请求级，boolean 或 {request, response}）可按方向关闭；`raw.get/post/...` 方法集整体关闭。
+  - UI 反馈解耦：notifier 回调（onError/onSuccess）替代框架组件，core 层零框架依赖。
+  - API 统一响应类型的定义位置：传输层类型（ApiResponse、ApiStatus、HttpError、RequestConfig 等）随 @hili/request 导出，与请求库同源演进；业务数据结构类型放各应用的 API 模块（泛型 T 注入），业务类型体量大后再拆独立 @hili/api-types 包。
+  - SSR 注意：Node fetch 无 cookie jar，服务端请求需经 headers 显式转发客户端 Cookie。
+- @hili/websocket（libs）：原 websocket.ts 移植，加 SSR 守卫（window/navigator/WebSocket 缺失时跳过对应逻辑），Node 22+（自带 WebSocket 全局）可直接实例化。
+- @hili/player-types（libs）：@lumina 三包的过渡期手工类型面。nova-player 的 dist d.ts 以 .ts 扩展引用框架源码树（@/core、@/types 等），包外无法解析，也无法用 rollup-plugin-dts 滚平（框架源码含运行时语句）；故由本包人工同步公开导出面，应用 tsconfig 用 paths 把 @lumina/* 映射过来（见 apps/live/tsconfig.json）。上游 d.ts 自包含后整体移除。
+
+## 十二、播放器域（packages/nova-player）
+
+gitee 外部仓（danding0000001/nova-player）以 submodule 挂载在 packages/nova-player，url 指向 gitee 远端；仓内三包注册进外层 workspace：
+
+| 包 | 形态 | 产物 |
+|---|---|---|
+| @lumina/nova | 播放器内核 + Lumina 框架 | dist/index.js、lumina.js（框架运行时）、index.umd.js（CDN 单文件）、style.css |
+| @lumina/plugins | 12 个插件，多入口 + preserveModules | 依赖方提供 @lumina/nova、dashjs、flv.js（external） |
+| @lumina/live-player | 直播间 Web Component（自包含） | dist/index.js 单文件 |
+
+关键约定与已落地的上游修正（本地 commit 86444d1，推送 gitee 前需确认）：
+
+1. 删除 nova-player 自身 pnpm-workspace.yaml 与 pnpm-lock.yaml，依赖安装由外层 workspace 统一承担。
+2. 仓根 build 更名 build:all：turbo 只认各包自身 build，拓扑排序由 turbo 依据 workspace 依赖图驱动，CI 一条 `turbo build` 完成第三方与播放器再构建应用。
+3. 插件构建 external 补漏：插件源码此前用相对路径引 player 内部模块（PlayerStateKeyEnum、BrowserCapabilityDetector、detectManifestProtocol），导致 4 个 player 内部模块被打进插件 dist；现改为从 @lumina/nova 公开出口引用（nova 侧补了对应导出），dist/packages 泄漏清零。
+4. 三包 devDeps 显式补 typescript（^6.0.3）与 @types/node：内部 workspace 根删除后包必须自持工具链。
+
+已识别待上游确认的两项（暂不动）：
+
+- live-player 去 self-contained：其源码引用框架内部符号（_reactiveText、createTypedStateManager、PluginManager、locale JSON 等），去内嵌需要把这些内部 API 提升为 nova 公开导出，属上游 API 面设计决策，确认后再实施。
+- d.ts 自包含：需为框架根目录（core / types / events / error）独立生成声明并重写 dist 内的 .ts 扩展引用，工作量集中在构建脚本；过渡期由 @hili/player-types 覆盖。
+
+apps/live 消费方式：package.json 声明 "@lumina/nova": "workspace:*" 等，运行时直接 import 包本体；类型经 tsconfig paths 映射到 @hili/player-types。
+
+## 十三、CI 要点
+
+- ci.yml：install → turbo lint → turbo typecheck → turbo build（依赖图增量，含 @lumina 三包与应用的拓扑构建）。
 - submodule-check：pnpm check:sub（指针漂移即失败），防止忘 update。
-- 依赖规则校验（第四节的 boundary 规则）进 lint 阶段。
+- 依赖规则校验（第四节 boundary 规则）进 lint 阶段。
 
-## 十一、后续路线
+## 十四、后续路线
 
-1. apps/web 初始化（SolidStart），迁移现有 hilihili-components demo 里的 PassportDemo / AccountDemo。
-2. core 先行包：utils → crypto → request → storage（request 依赖 crypto 做签名注入）。
-3. ui-solid：迁移 aether-ui（现 hilihili-components/src/components 的 ae- 前缀组件库）。
-4. player-core 内核 + 弹幕引擎接口；comment(Lit) 评论组件。
-5. apps/mobile 混合渲染骨架；apps/admin Vue 骨架。
-6. CI 补全：boundary 依赖校验、changesets 自动发布、子域名部署流水线。
+1. core 包补齐：crypto（request 依赖其做签名注入）→ storage → shared-worker。
+2. ui-solid：迁移 aether-ui（现 hilihili-components/src/components 的 ae- 前缀组件库）。
+3. apps/web 已由官方 create-solid 模板初始化（SolidStart v2 + nitro v3，硬性要求 Node >=24，nvm 已切 24.16.0）；apps/live（端口 3001）/apps/member（端口 3002）由官方 Solid+Vite CSR 模板初始化；apps/mobile、apps/admin 仍为占位。
+4. packages/plugins/tracker 已移植 spm 埋点（曝光/点击/停留/自动拦截）。
+5. 播放器域已整包挂载（见第十二节）；富文本编辑器未来独立建仓后照同一模式接入（域 submodule + 外层 workspace + turbo 统一构建）。
+6. nova-player 上游两项待确认：live-player 去 self-contained（需扩 nova 公开 API 面）、d.ts 自包含（框架声明独立生成 + 引用重写）。
+7. CI 补全：boundary 依赖校验、changesets 自动发布、子域名部署流水线。

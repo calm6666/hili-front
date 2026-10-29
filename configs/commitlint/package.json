@@ -9,5 +9,13 @@
   },
   "dependencies": {
     "@commitlint/config-conventional": "^19.8.0"
-  }
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "devDependencies": {
+    "@hili/eslint-config": "workspace:*"
+  },
+  "type": "module"
 }
