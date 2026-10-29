@@ -1,0 +1,25 @@
+{
+  "name": "hili-front",
+  "private": true,
+  "packageManager": "pnpm@10.24.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "up:sub": "node scripts/submodule.mjs update",
+    "st:sub": "node scripts/submodule.mjs status",
+    "check:sub": "node scripts/submodule.mjs check",
+    "new:package": "node scripts/new-package.mjs",
+    "cs": "changeset"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.0",
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.0"
+  }
+}

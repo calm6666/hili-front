@@ -1,0 +1,11 @@
+{
+  "name": "@hili/vite-preset",
+  "version": "0.0.1",
+  "private": false,
+  "description": "共享 vite 预设（resolve/define/构建约定），占位待补",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

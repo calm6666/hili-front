@@ -1,0 +1,13 @@
+{
+  "name": "@hili/commitlint-config",
+  "version": "0.0.1",
+  "private": false,
+  "description": "共享 commitlint 预设（conventional commits）",
+  "main": "./src/index.cjs",
+  "exports": {
+    ".": "./src/index.cjs"
+  },
+  "dependencies": {
+    "@commitlint/config-conventional": "^19.8.0"
+  }
+}

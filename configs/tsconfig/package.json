@@ -1,0 +1,9 @@
+{
+  "name": "@hili/tsconfig",
+  "version": "0.0.1",
+  "private": false,
+  "description": "共享 tsconfig 预设：base / solid / vue / lit / node",
+  "files": [
+    "*.json"
+  ]
+}

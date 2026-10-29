@@ -1,0 +1,21 @@
+[submodule "apps/web"]
+	path = apps/web
+	url = ./apps/web
+[submodule "apps/mobile"]
+	path = apps/mobile
+	url = ./apps/mobile
+[submodule "apps/spa"]
+	path = apps/spa
+	url = ./apps/spa
+[submodule "apps/admin"]
+	path = apps/admin
+	url = ./apps/admin
+[submodule "packages/core"]
+	path = packages/core
+	url = ./packages/core
+[submodule "packages/ui"]
+	path = packages/ui
+	url = ./packages/ui
+[submodule "packages/plugins"]
+	path = packages/plugins
+	url = ./packages/plugins
