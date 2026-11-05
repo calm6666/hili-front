@@ -7,4 +7,7 @@ packages:
   - packages/nova-player
   - packages/nova-player/packages/*
   - packages/nova-player/demo-prod
+  - packages/kalamos
+  - packages/hermes
+  - packages/comment
   - configs/*
