@@ -27,7 +27,16 @@
 	url = ./apps/member
 [submodule "packages/nova-player"]
 	path = packages/nova-player
-	url = https://gitee.com/danding0000001/nova-player.git
+	url = https://github.com/calm6666/nova-player.git
 [submodule "packages/libs"]
 	path = packages/libs
 	url = ./packages/libs
+[submodule "packages/comment"]
+	path = packages/comment
+	url = https://github.com/calm6666/comment.git
+[submodule "packages/hermes"]
+	path = packages/hermes
+	url = https://github.com/calm6666/hermes.git
+[submodule "packages/kalamos"]
+	path = packages/kalamos
+	url = https://github.com/calm6666/kalamos.git
