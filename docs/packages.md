@@ -7,6 +7,12 @@
 - **dist 引入（打包后引入）**：消费方只拿构建产物。适合独立仓库、复用面宽、依赖重的库。要求：应用构建前先构建各 dist 包；`files` 只携带 `dist`；源码不入消费方 bundle。
 - **src 引入（源码引入）**：消费方直接引 `src`（vite/tsc 现场编译）。适合紧贴本仓演进、无独立版本诉求的内部包。
 
+### 解析规则（强制）
+
+- 消费方一律 `import '@hili/xxx'`，由 pnpm workspace 链接到包目录后按该包 `package.json` 的 `exports` 解析：src 包 exports 指向 `src/index.ts`，dist 包 exports 指向 `dist/`。
+- 应用 vite 配置**禁止**再写指向包 src 的 `resolve.alias`（自造间接层会绕开包管理，导致 dist 引入失效，例如 apps/web 曾因此把 comment 解析回 src 报装饰器错误）。
+- Solid 组件包（biz-solid/ui-solid 等）依赖 exports 的 `solid` condition 命中 src：apps/web 由 vite-plugin-solid（经 @solidjs/start）注入；如个别环境未注入，在该应用 vite 配置加 `resolve.conditions: ["solid"]`（Vite 官方机制），仍然不写 alias。
+
 ## 清单
 
 | 位置 | 包名 | 接入模式 | 版本控制 | 产物入口 | 消费方 |
@@ -15,6 +21,8 @@
 | `packages/kalamos` | `kalamos` | dist | 独立仓库 gitlink | `dist/{core,server,client}/index.js` + `dist/styles/*.css` | 暂无 |
 | `packages/hermes` | `hermes` | dist | 独立仓库 gitlink | `dist/hermes.{mjs,cjs}` + `dist/hermes.css` | 暂无 |
 | `packages/comment` | `@hili/comment` | dist | 独立仓库 gitlink | `dist/index.js` | apps/web |
+| `packages/banner-sdk` | `@hili/banner-sdk` | dist | 根仓库普通目录 | `dist/index.js`、`dist/index.cjs`、`dist/index.d.ts` | `apps/banner-editor`、任何宿主项目 |
+| `packages/banner-solid` | `@hili/banner-solid` | src（`solid` 条件） | 根仓库普通目录 | `src/index.tsx` | Solid 应用 |
 | `packages/core/*` | `@hili/crypto`、`@hili/shared-worker`、`@hili/storage`、`@hili/utils` | src | submodule（`packages/core`） | `src/index.ts` | 各应用 |
 | `packages/libs/*` | `@hili/player-bridge`、`@hili/request`、`@hili/websocket` | src | submodule（`packages/libs`） | `src/index.ts` | 各应用 |
 | `packages/ui/*` | `@hili/ui-solid`、`@hili/ui-vue`、`@hili/biz-solid`、`@hili/biz-vue`、`@hili/biz-mobile-solid`、`@hili/ui-mobile-solid`、`@hili/theme-tokens`、`@hili/toast`、`@hili/styles`、`aether-ui`、`aether-icons`、`aether-iconfont` | src（`@hili/ui-solid` 混合：`solid` 条件走 src，`import` 走 dist） | submodule（`packages/ui`） | `src/index.ts` / `src/*.css` | 各应用 |
@@ -27,6 +35,7 @@ apps 侧（`apps/web`、`apps/mobile`、`apps/spa`、`apps/admin`、`apps/live`�
 
 ```sh
 # dist 包（被消费前）
+pnpm --filter @hili/banner-sdk build
 pnpm --filter @lumina/nova build:player && pnpm --filter @lumina/plugins build   # 或 nova-player 内 build:all
 pnpm --filter kalamos build:lib
 pnpm --filter hermes build

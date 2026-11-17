@@ -2,17 +2,26 @@
   "name": "@hili/vite-preset",
   "version": "0.0.1",
   "private": false,
-  "description": "共享 vite 预设（resolve/define/构建约定），占位待补",
+  "description": "共享 Vite 预设（父项目统一配置）：CDN base、静态资源目录（konoha）、端口、代理目标、env 合并；子应用按需覆盖",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./scroll-restoration": "./src/scroll-restoration.ts"
   },
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
+  "dependencies": { "@vitejs/plugin-legacy": "^8.2.4" },
+  "peerDependencies": {
+    "vite": ">=5.0.0"
+  },
   "devDependencies": {
-    "@hili/eslint-config": "workspace:*"
+    "@hili/eslint-config": "workspace:*",
+    "@hili/tsconfig": "workspace:*",
+    "@types/node": "^24.10.1",
+    "vite": "^8.0.0"
   }
 }

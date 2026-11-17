@@ -1,5 +1,7 @@
 packages:
   - apps/*
+  - packages/banner-sdk
+  - packages/banner-solid
   - packages/core/*
   - packages/libs/*
   - packages/ui/*

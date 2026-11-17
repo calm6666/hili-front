@@ -17,6 +17,7 @@
     "eslint": "^10.2.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-solid": "^0.14.5",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.0"
   }
 }
